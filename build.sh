@@ -62,10 +62,10 @@ fi
 # Separate the sourcing of aglsetup.sh into a subshell to avoid affecting the current shell environment,
 # ensuring subsequent moulin commands are not impacted by environment changes.
 dieif bash -c " \
-    source meta-agl/scripts/aglsetup.sh -m virtio-aarch64 -b build agl-demo agl-devel agl-kvm && \
+    source meta-agl/scripts/aglsetup.sh -m virtio-aarch64 -b build agl-demo agl-devel agl-kvm agl-ic && \
     cd "$workdir/agl" && \
     if [ -e site.conf ]; then cd build/conf && ln -sfr ../../site.conf && cd ../..; fi && \
-    bitbake agl-ivi-demo-flutter-guest agl-cluster-demo-flutter-guest \
+    bitbake agl-ivi-demo-flutter-guest agl-cluster-demo-flutter-guest agl-instrument-cluster-standalone-demo \
     "
 dieif cd "$workdir"
 
