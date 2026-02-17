@@ -44,24 +44,14 @@ if [ ! -f "external/meta-rcar-demo/firmware/rcar_gen4_pcie.bin" ]; then
 fi
 
 # build AGL images
-agl_branch="trout"
-agl_version="trout_20.0.2"
+agl_branch="trout-sodev"
 local_conf_patch_tag="### This is modified by build.sh ###"
 
 dieif cd "$workdir/agl"
 if [ ! -d "meta-agl" ]; then
-    dieif repo init -b "$agl_branch" -m "$agl_version".xml -u https://gerrit.automotivelinux.org/gerrit/AGL/AGL-repo
+    dieif repo init -b "$agl_branch" -u https://github.com/automotive-grade-linux/AGL-repo.git
     dieif repo sync -j8
 fi
-
-IFS=$'\n' read -rd '' -a patches <<< "$(ls patches/meta-agl/*.patch 2>/dev/null | xargs realpath 2>/dev/null)"
-for patch in "${patches[@]}"; do
-    ! git -C meta-agl apply --reverse --check "$patch" 2>/dev/null && dieif git -C meta-agl am --keep-cr "$patch" && echo "$patch applied"
-done
-IFS=$'\n' read -rd '' -a patches <<< "$(ls patches/meta-agl-demo/*.patch 2>/dev/null | xargs realpath 2>/dev/null)"
-for patch in "${patches[@]}"; do
-    ! git -C meta-agl-demo apply --reverse --check "$patch" 2>/dev/null && dieif git -C meta-agl-demo am --keep-cr "$patch" && echo "$patch applied"
-done
 
 if [ -f patches/local.conf ] && ! grep -q "$local_conf_patch_tag" build/conf/local.conf; then
     echo "$local_conf_patch_tag" >> build/conf/local.conf
@@ -72,10 +62,10 @@ fi
 # Separate the sourcing of aglsetup.sh into a subshell to avoid affecting the current shell environment,
 # ensuring subsequent moulin commands are not impacted by environment changes.
 dieif bash -c " \
-    source meta-agl/scripts/aglsetup.sh -m virtio-aarch64 -b build agl-demo agl-devel agl-kvm && \
+    source meta-agl/scripts/aglsetup.sh -m virtio-aarch64 -b build agl-demo agl-devel agl-kvm agl-ic && \
     cd "$workdir/agl" && \
     if [ -e site.conf ]; then cd build/conf && ln -sfr ../../site.conf && cd ../..; fi && \
-    bitbake agl-ivi-demo-flutter-guest agl-cluster-demo-flutter-guest \
+    bitbake agl-ivi-demo-flutter-guest agl-cluster-demo-flutter-guest agl-instrument-cluster-standalone-demo \
     "
 dieif cd "$workdir"
 
