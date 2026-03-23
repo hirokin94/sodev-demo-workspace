@@ -69,4 +69,4 @@ dieif bash -c " \
     "
 dieif cd "$workdir"
 
-./external/meta-rcar-demo/build.sh -a -u -v -r
+./external/meta-rcar-demo/build.sh -a -u -v -r -z
