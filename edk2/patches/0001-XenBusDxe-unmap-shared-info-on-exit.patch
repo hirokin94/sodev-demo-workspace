@@ -1,0 +1,62 @@
+Subject: [PATCH] XenBusDxe: unmap the shared_info page on exit
+---
+diff --git a/OvmfPkg/XenBusDxe/XenBusDxe.c b/OvmfPkg/XenBusDxe/XenBusDxe.c
+index 132f43a..60e393b 100644
+--- a/OvmfPkg/XenBusDxe/XenBusDxe.c
++++ b/OvmfPkg/XenBusDxe/XenBusDxe.c
+@@ -84,6 +84,47 @@ XenGetSharedInfoPage (
+   return EFI_SUCCESS;
+ }
+ 
++/**
++  Unmap the shared_info page so that the OS can map it itself. On Arm,
++  xenmem_add_to_physmap_one() returns -EBUSY while it is still mapped.
++  The page is deliberately not freed: the range must stay reserved.
++
++  @param Dev    A XENBUS_DEVICE instance.
++**/
++STATIC
++VOID
++XenPutSharedInfoPage (
++  IN OUT XENBUS_DEVICE  *Dev
++  )
++{
++  xen_remove_from_physmap_t  Parameter;
++  INTN                       ReturnCode;
++
++  if (Dev->SharedInfo == NULL) {
++    return;
++  }
++
++  Parameter.domid = DOMID_SELF;
++  Parameter.gpfn  = (xen_pfn_t)((UINTN)Dev->SharedInfo >> EFI_PAGE_SHIFT);
++
++  DEBUG ((
++    DEBUG_INFO,
++    "XenBus: unmapping shared info page %Lx\n",
++    (UINT64)Parameter.gpfn
++    ));
++
++  ReturnCode = XenHypercallMemoryOp (XENMEM_remove_from_physmap, &Parameter);
++  if (ReturnCode != 0) {
++    DEBUG ((
++      DEBUG_ERROR,
++      "XenBus: shared info remove_from_physmap hypercall error: %Ld\n",
++      (INT64)ReturnCode
++      ));
++  }
++
++  Dev->SharedInfo = NULL;
++}
++
+ /**
+   Unloads an image.
+ 
+@@ -500,6 +541,7 @@ XenBusDxeDriverBindingStop (
+   gBS->CloseEvent (Dev->ExitBootEvent);
+   XenStoreDeinit (Dev);
+   XenGrantTableDeinit (Dev);
++  XenPutSharedInfoPage (Dev);
+ 
+   gBS->CloseProtocol (
+          ControllerHandle,

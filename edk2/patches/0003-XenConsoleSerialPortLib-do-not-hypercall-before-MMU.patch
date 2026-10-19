@@ -1,0 +1,52 @@
+Subject: [PATCH] XenConsoleSerialPortLib: do not hypercall before the MMU is on
+
+---
+diff --git a/OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.c b/OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.c
+index 8a459df..f3314d3 100644
+--- a/OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.c
++++ b/OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.c
+@@ -14,6 +14,10 @@
+ #include <Library/SerialPortLib.h>
+ #include <Library/XenHypercallLib.h>
+ 
++#if defined (MDE_CPU_ARM) || defined (MDE_CPU_AARCH64)
++  #include <Library/ArmLib.h>
++#endif
++
+ #include <IndustryStandard/Xen/io/console.h>
+ #include <IndustryStandard/Xen/hvm/params.h>
+ #include <IndustryStandard/Xen/event_channel.h>
+@@ -72,6 +76,19 @@ SerialPortInitialize (
+     return RETURN_DEVICE_ERROR;
+   }
+ 
++ #if defined (MDE_CPU_ARM) || defined (MDE_CPU_AARCH64)
++  //
++  // With the MMU off, guest accesses are Device-nGnRnE and do not snoop the
++  // caches, so HVMOP_get_param's result -- written by the hypervisor with its
++  // caches on -- reads back as stale DRAM. ArmVirtPkg/PrePi calls us again
++  // right after MemoryPeim(), so just bail out here.
++  //
++  if (!ArmMmuEnabled ()) {
++    return RETURN_DEVICE_ERROR;
++  }
++
++ #endif
++
+   if (!mXenConsoleInterface) {
+     mXenConsoleEventChain.port = (UINT32)XenHypercallHvmGetParam (HVM_PARAM_CONSOLE_EVTCHN);
+     mXenConsoleInterface       = (struct xencons_interface *)(UINTN)
+diff --git a/OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.inf b/OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.inf
+index 51c6626..4d6eb9e 100644
+--- a/OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.inf
++++ b/OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.inf
+@@ -24,6 +24,9 @@
+   BaseLib
+   XenHypercallLib
+ 
++[LibraryClasses.ARM, LibraryClasses.AARCH64]
++  ArmLib
++
+ [Packages]
+   MdePkg/MdePkg.dec
+   OvmfPkg/OvmfPkg.dec

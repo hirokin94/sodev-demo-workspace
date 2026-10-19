@@ -14,5 +14,8 @@ flatcar/artifacts/
 flatcar/build-sysroot/
 flatcar/flatcar_production_qemu_uefi_image.img
 flatcar/flatcar_production_qemu_uefi_image.raw
-flatcar/kernel/vmlinuz-a
-flatcar/kernel/vmlinuz-b
+flatcar/kernel/XEN_EFI.fd
+
+# EDK2 (ArmVirtXen) build artifacts
+edk2/src/
+edk2/out/

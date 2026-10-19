@@ -1,0 +1,9 @@
+Subject: [PATCH] oem-qemu: add acpi=off so the image boots as a Xen domU
+---
+diff --git a/sdk_container/src/third_party/coreos-overlay/coreos-base/common-oem-files/files/qemu/grub.cfg.frag b/sdk_container/src/third_party/coreos-overlay/coreos-base/common-oem-files/files/qemu/grub.cfg.frag
+index 4f9e06c2c8..aae72af259 100644
+--- a/sdk_container/src/third_party/coreos-overlay/coreos-base/common-oem-files/files/qemu/grub.cfg.frag
++++ b/sdk_container/src/third_party/coreos-overlay/coreos-base/common-oem-files/files/qemu/grub.cfg.frag
+@@ -1 +1 @@
+-set linux_append="flatcar.autologin"
++set linux_append="flatcar.autologin acpi=off console=hvc0"

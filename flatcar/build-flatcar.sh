@@ -53,6 +53,41 @@ extract_portage_logs() {
         echo "WARNING: could not copy portage logs (container may not exist)"
 }
 
+# SoDeV patches for flatcar/scripts. The submodule is left clean on exit.
+PATCH_DIR="${WORKDIR}/flatcar/patches"
+SCRIPTS_DIR="${WORKDIR}/flatcar/scripts"
+APPLIED_PATCHES=()
+
+apply_sodev_patches() {
+    local p
+    [ -d "${PATCH_DIR}" ] || return 0
+    shopt -s nullglob
+    for p in "${PATCH_DIR}"/*.patch; do
+        if git -C "${SCRIPTS_DIR}" apply --reverse --check "${p}" 2>/dev/null; then
+            # Already applied, e.g. a previous run died. Record it so that it
+            # still gets reverted on exit.
+            echo "  already applied (will be reverted on exit): $(basename "${p}")"
+            APPLIED_PATCHES+=("${p}")
+            continue
+        fi
+        echo "  applying: $(basename "${p}")"
+        dieif git -C "${SCRIPTS_DIR}" apply "${p}"
+        APPLIED_PATCHES+=("${p}")
+    done
+    shopt -u nullglob
+}
+
+revert_sodev_patches() {
+    local i
+    for (( i=${#APPLIED_PATCHES[@]}-1 ; i>=0 ; i-- )); do
+        echo "  reverting: $(basename "${APPLIED_PATCHES[i]}")"
+        git -C "${SCRIPTS_DIR}" apply --reverse "${APPLIED_PATCHES[i]}" || \
+            echo "WARNING: failed to revert $(basename "${APPLIED_PATCHES[i]}")." \
+                 "Check with: git -C ${SCRIPTS_DIR} status"
+    done
+    APPLIED_PATCHES=()
+}
+
 cleanup() {
     # Capture the exit code first
     local exit_code=$?
@@ -60,6 +95,12 @@ cleanup() {
     # Restore version file
     cp "${VERSION_FILE_BAK}" "${VERSION_FILE}"
     rm -f "${VERSION_FILE_BAK}"
+
+    # Revert the patches so that flatcar/scripts is left clean
+    if [ "${#APPLIED_PATCHES[@]}" -gt 0 ]; then
+        echo "--- Cleanup: reverting SoDeV patches in flatcar/scripts ---"
+        revert_sodev_patches
+    fi
 
     if [ "${exit_code}" -ne 0 ]; then
         # On failure, get the portage log files out and point the user to them.
@@ -82,6 +123,9 @@ cleanup() {
     fi
 }
 trap cleanup EXIT
+
+echo "--- Flatcar: Applying SoDeV patches to flatcar/scripts ---"
+apply_sodev_patches
 
 # --- setting env ---
 source ci-automation/ci_automation_common.sh
@@ -168,11 +212,5 @@ if [ -f "${FLATCAR_OUTPUT}/flatcar_production_qemu_uefi_image.img" ]; then
 else
     die "Flatcar build output not found: ${FLATCAR_OUTPUT}/flatcar_production_qemu_uefi_image.img"
 fi
-
-# get kernel image
-echo "Copying Flatcar kernel from build artifacts..."
-dieif mkdir -p "${WORKDIR}/flatcar/kernel"
-dieif cp "${FLATCAR_OUTPUT}/flatcar_production_image.vmlinuz" \
-    "${WORKDIR}/flatcar/kernel/vmlinuz-a"
 
 echo "=== Flatcar build complete ==="

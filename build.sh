@@ -40,11 +40,30 @@ FLATCAR_BOARD="${FLATCAR_ARCH}-usr"
 FLATCAR_CONTAINER_NAME=flatcar-sodev-build
 FLATCAR_ARTIFACT_ROOT=/mnt/host/artifacts
 
+[ -n "$(which iasl)" ] || \
+    die "command iasl not found."
+cmdcheck aarch64-linux-gnu-gcc
+
 [ "$ENABLE_FLATCAR_BUILD" = "yes" ] && build_opts+=(--enable-flatcar)
 
 cmdcheck moulin ninja
 
 workdir="$PWD"
+
+# EDK2 (ArmVirtXen)
+build_edk2_armvirtxen() {
+    local script="$workdir/edk2/build-edk2.sh"
+    local out="$workdir/edk2/out/XEN_EFI.fd"
+
+    [ -f "$script" ] || die "no such script: $script"
+
+    dieif env WORKDIR="$workdir" bash "$script" --no-debug
+
+    [ -f "$out" ] || die "EDK2 build produced no XEN_EFI.fd: $out"
+    dieif mkdir -p "$workdir/flatcar/kernel"
+    dieif cp "$out" "$workdir/flatcar/kernel/XEN_EFI.fd"
+    echo "  installed: $workdir/flatcar/kernel/XEN_EFI.fd"
+}
 
 [ ! -d "external/meta-rcar-demo" ] && die "no such directory: external/meta-rcar-demo"
 
@@ -76,6 +95,9 @@ if [ "${ENABLE_FLATCAR_BUILD}" = "yes" ]; then
         die "Flatcar build output not found: flatcar_production_qemu_uefi_image.img"
     fi
 fi
+
+# Build UEFI firmware
+build_edk2_armvirtxen
 
 # build AGL images
 agl_branch="trout-sodev"
