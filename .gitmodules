@@ -5,4 +5,3 @@
 [submodule "flatcar/scripts"]
 	path = flatcar/scripts
 	url = https://github.com/flatcar/scripts.git
-	branch = flatcar-4593
